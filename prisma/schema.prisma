@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  LAWYER
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id               String        @id @default(cuid())
+  email            String        @unique
+  name             String
+  password         String
+  role             Role
+  profilePicture   String?
+  bookings         Booking[]
+  chats            Chat[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  lawyer           Lawyer?
+}
+
+model Lawyer {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city             String
+  specialization   String
+  rating           Float    @default(0)
+  availability     Boolean  @default(true)
+  availabilitySlots Availability[]
+  bookings         Booking[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Availability {
+  id        String   @id @default(cuid())
+  lawyerId  String
+  lawyer    Lawyer   @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  date      DateTime
+  startTime String
+  endTime   String
+  isFullDay Boolean  @default(false)
+  bookings  Booking[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lawyerId, date, startTime, endTime])
+  @@index([lawyerId])
+  @@index([date])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lawyerId        String
+  lawyer          Lawyer        @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  availabilityId  String
+  availability    Availability  @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  status          BookingStatus @default(PENDING)
+  reason          String?
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([availabilityId, userId])
+  @@index([userId])
+  @@index([lawyerId])
+  @@index([status])
+}
+
+model Chat {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+  title     String        @default("New Chat")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  role      String   // "user" or "assistant"
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([chatId])
+}
